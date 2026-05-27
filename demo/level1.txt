@@ -1,10 +1,13 @@
 # Level 1 bracketed command objects
 
-# Middle-click inside any of these bracketed commands.
+# Middle-click inside a bracketed command to run its contents.
+# Selecting text first should still run the selected text.
 
 date
 
 ls
+
+# Basic commands.
 
 [echo hello from brackets]
 
@@ -15,6 +18,35 @@ ls
 [lc /]   
 
 [lc /sys]
+
+# Leading and trailing whitespace should be trimmed.
+
+[  date  ]
+
+[   echo trimmed whitespace   ]
+
+# Empty and whitespace-only brackets should not run.
+
+[]
+
+[   ]
+
+# Unmatched brackets should not become bracketed commands.
+
+[date
+
+date]
+
+# Two bracketed commands on one line should run independently.
+
+[date] [ls]
+
+# Nested command objects are not part of Level 1.
+# This line is here only to make current behavior visible.
+
+[echo [hello]]
+
+# rc redirection brackets should not become commands.
 
 >[2]/dev/null
 # Clicking in [2] should not run.

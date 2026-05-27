@@ -152,6 +152,53 @@ Middle-clicking anywhere inside the bracketed region:
 2. Extracts the interior text.
 3. Executes the extracted command.
 
+Clicking on either bracket character is treated as clicking in the
+bracketed region.
+
+## Selection Precedence
+
+An explicit text selection takes precedence over bracket expansion.
+
+If the middle-click occurs inside the current selection, Acme executes
+the selected text using its existing behavior. Bracket expansion is only
+a convenience for a null-selection middle-click.
+
+## Whitespace
+
+Leading and trailing whitespace inside the brackets is ignored.
+
+Example:
+
+```text
+[  date  ]
+```
+
+executes:
+
+```text
+date
+```
+
+Empty or whitespace-only bracketed regions are ignored.
+
+## rc Redirection Brackets
+
+rc uses square brackets in file descriptor redirection syntax.
+
+Example:
+
+```text
+>[2]/dev/null
+```
+
+Level 1 does not treat brackets immediately preceded by `<` or `>` as
+command objects. Clicking inside `[2]` in the example above should not
+execute `2`.
+
+This exception is intentionally narrow. Level 1 does not otherwise parse
+rc syntax; it only prevents common redirection syntax from becoming an
+accidental bracketed command object.
+
 ## Scope
 
 Level 1 applies to:
@@ -180,6 +227,12 @@ is undefined behavior in Level 1.
 ### Unmatched Brackets
 
 Unmatched brackets are ignored.
+
+No warning is required in the initial implementation.
+
+### Empty Brackets
+
+Empty brackets are ignored.
 
 No warning is required in the initial implementation.
 
