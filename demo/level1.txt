@@ -1,0 +1,24 @@
+# Level 1 bracketed command objects
+
+# Middle-click inside any of these bracketed commands.
+
+date
+
+ls
+
+[echo hello from brackets]
+
+[date]
+
+[ls]
+
+[lc /]   
+
+[lc /sys]
+
+>[2]/dev/null
+# Clicking in [2] should not run.
+
+[grep main ../src/*.c >[2]/dev/null]
+# Clicking in the outer bracketed command should run the whole grep command.
+# Clicking inside [2] should not run.

@@ -119,6 +119,103 @@ isexecc(int c)
 	return c=='<' || c=='|' || c=='>';
 }
 
+static int
+isredirbracket(Text *t, uint q, uint line0)
+{
+	int c;
+
+	if(q == line0)
+		return FALSE;
+	c = textreadc(t, q-1);
+	return c=='<' || c=='>';
+}
+
+static uint
+redircbracket(Text *t, uint q, uint line1)
+{
+	q++;
+	while(q<line1 && textreadc(t, q)!=']')
+		q++;
+	return q;
+}
+
+static int
+bracketexpand(Text *t, uint aq0, uint *q0, uint *q1)
+{
+	uint line0, line1, p, q, l, r, bestl, bestr;
+	int c, depth, found;
+
+	line0 = aq0;
+	while(line0>0 && textreadc(t, line0-1)!='\n')
+		line0--;
+	line1 = aq0;
+	while(line1<t->file->nc && textreadc(t, line1)!='\n')
+		line1++;
+
+	/*
+	 * Do not treat rc redirection notation like >[2] as a command
+	 * object.  A click inside it is a no-op rather than a request to
+	 * execute the file descriptor number.
+	 */
+	for(p=line0; p<line1; p++){
+		if(textreadc(t, p)=='[' && isredirbracket(t, p, line0)){
+			r = redircbracket(t, p, line1);
+			if(r<line1 && p<=aq0 && aq0<=r)
+				return -1;
+			p = r;
+		}
+	}
+
+	found = FALSE;
+	bestl = bestr = 0;
+	for(p=line0; p<line1; p++){
+		if(textreadc(t, p) != '[' || isredirbracket(t, p, line0))
+			continue;
+		l = p;
+		q = p+1;
+		depth = 1;
+		while(q<line1){
+			c = textreadc(t, q);
+			if(c == '['){
+				if(isredirbracket(t, q, line0)){
+					r = redircbracket(t, q, line1);
+					if(r == line1)
+						break;
+					q = r+1;
+					continue;
+				}
+				depth++;
+			}else if(c == ']'){
+				depth--;
+				if(depth == 0)
+					break;
+			}
+			q++;
+		}
+		if(q == line1 || depth != 0)
+			continue;
+		r = q;
+		if(l<=aq0 && aq0<=r)
+			if(!found || r-l > bestr-bestl){
+				bestl = l;
+				bestr = r;
+				found = TRUE;
+			}
+	}
+	if(!found)
+		return 0;
+
+	*q0 = bestl+1;
+	*q1 = bestr;
+	while(*q0<*q1 && isspace(textreadc(t, *q0)))
+		(*q0)++;
+	while(*q1>*q0 && isspace(textreadc(t, *q1-1)))
+		(*q1)--;
+	if(*q0 == *q1)
+		return -1;
+	return 1;
+}
+
 void
 execute(Text *t, uint aq0, uint aq1, int external, Text *argt)
 {
@@ -126,7 +223,7 @@ execute(Text *t, uint aq0, uint aq1, int external, Text *argt)
 	Rune *r, *s;
 	char *b, *a, *aa;
 	Exectab *e;
-	int c, n, f;
+	int c, n, f, bx;
 	Runestr dir;
 
 	q0 = aq0;
@@ -137,12 +234,17 @@ execute(Text *t, uint aq0, uint aq1, int external, Text *argt)
 			q0 = t->q0;
 			q1 = t->q1;
 		}else{
-			while(q1<t->file->nc && isexecc(c=textreadc(t, q1)) && c!=':')
-				q1++;
-			while(q0>0 && isexecc(c=textreadc(t, q0-1)) && c!=':')
-				q0--;
-			if(q1 == q0)
+			bx = bracketexpand(t, aq0, &q0, &q1);
+			if(bx < 0)
 				return;
+			if(bx == 0){
+				while(q1<t->file->nc && isexecc(c=textreadc(t, q1)) && c!=':')
+					q1++;
+				while(q0>0 && isexecc(c=textreadc(t, q0-1)) && c!=':')
+					q0--;
+				if(q1 == q0)
+					return;
+			}
 		}
 	}
 	r = runemalloc(q1-q0);
