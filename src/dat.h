@@ -232,6 +232,11 @@ enum
 	NINDENT,
 };
 
+enum
+{
+	NFKEY	= 12,
+};
+
 struct Window
 {
 		QLock;
@@ -276,6 +281,8 @@ struct Window
 	int		tagsafe;		/* taglines is correct */
 	int		tagexpand;
 	int		taglines;
+	Rune		*keycmd[NFKEY];
+	int		nkeycmd[NFKEY];
 	Rectangle	tagtop;
 };
 
@@ -299,6 +306,8 @@ void	winmousebut(Window*);
 void	winaddincl(Window*, Rune*, int);
 void	wincleartag(Window*);
 char	*winctlprint(Window*, char*, int);
+int	winkeyexecute(Window*, Text*, Rune);
+void	winkeyclear(Window*);
 
 struct Column
 {

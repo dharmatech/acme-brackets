@@ -1,0 +1,25 @@
+# Level 3 keyboard-triggered command objects
+
+# Put one or more bindings in a window tag, then middle-click KeyPut.
+# Pressing the function key while the mouse is over that window should run
+# the compiled command.
+
+[F1: date]
+[F2: echo hello from F2]
+[F3: pwd]
+
+# Keys prints the currently compiled bindings.
+
+# Removing the binding declarations from the tag and running KeyPut should
+# clear the compiled bindings for that window.
+
+# Unsupported key syntax should report an error and leave existing compiled
+# bindings unchanged.
+
+[Ctrl-R: echo deferred]
+[Shift-F5: echo deferred]
+
+# Empty and duplicate declarations are invalid.
+
+[F4: ]
+[F1: echo duplicate]

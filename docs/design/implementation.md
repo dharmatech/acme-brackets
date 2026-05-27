@@ -60,6 +60,27 @@ The current verification path is manual:
 
 * `demo/level1.txt`
 * `demo/level2.txt`
+* `demo/level3.txt`
 
 A future refactor could move the expansion logic behind a text-buffer
 and cursor-position interface so these cases can become automated tests.
+
+## Level 3
+
+Window-local key bindings are compiled from the window tag by `KeyPut`.
+
+The keyboard path is:
+
+```text
+keyboardthread
+    rowtype
+        winkeyexecute
+        wintype
+```
+
+`rowtype` remains responsible for resolving the text under the mouse.
+`winkeyexecute` only intercepts compiled function-key bindings for that
+window. If there is no binding, normal typing continues through `wintype`.
+
+Compiled commands share the same built-in and external-command dispatch
+logic used by middle-click execution.

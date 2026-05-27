@@ -270,7 +270,8 @@ rowtype(Row *row, Rune r, Point p)
 			texttype(t, r);
 		else{
 			winlock(w, 'K');
-			wintype(w, t, r);
+			if(!winkeyexecute(w, t, r))
+				wintype(w, t, r);
 			winunlock(w);
 		}
 	}

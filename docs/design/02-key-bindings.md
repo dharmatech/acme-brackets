@@ -66,13 +66,19 @@ KeyPut
 Keys
 ```
 
-Exact naming remains open for experimentation.
+`KeyPut` is the compile action: it reads visible key binding declarations
+and updates the in-memory keymap.
 
-`KeyPut` is the likely compile action: it reads visible key binding
-declarations and updates the in-memory keymap.
+`Keys` is the inspection action: it shows the currently compiled bindings.
 
-`Keys` is the likely inspection action: it shows the currently compiled
-bindings.
+`KeyPut` compiles bindings from the window tag only. Body text is not
+scanned.
+
+If the tag contains no key bindings, `KeyPut` clears the window's current
+compiled bindings.
+
+If `KeyPut` finds an invalid key binding declaration, it reports the
+error and leaves the previous compiled bindings unchanged.
 
 ### Current Window
 
@@ -101,6 +107,7 @@ Row tags and column tags are deferred to Level 4.
 Level 3 initially supports:
 
 * Window-local bindings only
+* Function keys `F1` through `F12`
 
 ### Initial Constraints
 
@@ -109,6 +116,8 @@ Column/global lookup is deferred to Level 4.
 Bindings are recompiled only on explicit user action.
 
 Nested command objects remain unsupported.
+
+Modifier syntax such as `Ctrl-R` and `Shift-F5` is deferred.
 
 ### Success Criteria
 

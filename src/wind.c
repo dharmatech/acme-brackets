@@ -323,6 +323,7 @@ winclose(Window *w)
 		for(i=0; i<w->nincl; i++)
 			free(w->incl[i]);
 		free(w->incl);
+		winkeyclear(w);
 		free(w->events);
 		free(w);
 	}

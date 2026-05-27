@@ -39,6 +39,8 @@ void	get(Text*, Text*, Text*, int, int, Rune*, int);
 void	id(Text*, Text*, Text*, int, int, Rune*, int);
 void	incl(Text*, Text*, Text*, int, int, Rune*, int);
 void	indent(Text*, Text*, Text*, int, int, Rune*, int);
+void	keyput(Text*, Text*, Text*, int, int, Rune*, int);
+void	keys(Text*, Text*, Text*, int, int, Rune*, int);
 void	kill(Text*, Text*, Text*, int, int, Rune*, int);
 void	local(Text*, Text*, Text*, int, int, Rune*, int);
 void	look(Text*, Text*, Text*, int, int, Rune*, int);
@@ -74,6 +76,8 @@ Exectab exectab[] = {
 	{ L"ID",		id,		FALSE,	XXX,		XXX		},
 	{ L"Incl",		incl,		FALSE,	XXX,		XXX		},
 	{ L"Indent",	indent,		FALSE,	AUTOINDENT,		XXX		},
+	{ L"KeyPut",	keyput,	FALSE,	XXX,		XXX		},
+	{ L"Keys",		keys,		FALSE,	XXX,		XXX		},
 	{ L"Kill",		kill,		FALSE,	XXX,		XXX		},
 	{ L"Load",		dump,	FALSE,	FALSE,	XXX		},
 	{ L"Local",		local,	FALSE,	XXX,		XXX		},
@@ -117,6 +121,193 @@ isexecc(int c)
 	if(isfilec(c))
 		return 1;
 	return c=='<' || c=='|' || c=='>';
+}
+
+static int
+fkeyindex(Rune r, int *ip)
+{
+	if(r < (KF|1) || r > (KF|NFKEY))
+		return FALSE;
+	*ip = r - (KF|1);
+	return TRUE;
+}
+
+static void
+trimrange(Rune *r, int *q0, int *q1)
+{
+	while(*q0<*q1 && isspace(r[*q0]))
+		(*q0)++;
+	while(*q1>*q0 && isspace(r[*q1-1]))
+		(*q1)--;
+}
+
+static int
+iskeybindingname(Rune *r, int n)
+{
+	if(n>=2 && r[0]=='F' && '0'<=r[1] && r[1]<='9')
+		return TRUE;
+	if(n>=5 && runeeq(r, 5, L"Ctrl-", 5))
+		return TRUE;
+	if(n>=6 && runeeq(r, 6, L"Shift-", 6))
+		return TRUE;
+	if(n>=4 && runeeq(r, 4, L"Alt-", 4))
+		return TRUE;
+	return FALSE;
+}
+
+static int
+parsefkey(Rune *r, int n, int *ip)
+{
+	int i, v;
+
+	if(n<2 || r[0]!='F')
+		return FALSE;
+	v = 0;
+	for(i=1; i<n; i++){
+		if(r[i]<'0' || r[i]>'9')
+			return FALSE;
+		v = v*10 + r[i]-'0';
+	}
+	if(v<1 || v>NFKEY)
+		return FALSE;
+	*ip = v-1;
+	return TRUE;
+}
+
+void
+winkeyclear(Window *w)
+{
+	int i;
+
+	for(i=0; i<NFKEY; i++){
+		free(w->keycmd[i]);
+		w->keycmd[i] = nil;
+		w->nkeycmd[i] = 0;
+	}
+}
+
+static void
+freekeycmds(Rune **cmd)
+{
+	int i;
+
+	for(i=0; i<NFKEY; i++)
+		free(cmd[i]);
+}
+
+static int
+compilekeys(Window *w, Rune **cmd, int *ncmd, int *nbind)
+{
+	Rune *r, *c;
+	int n, q, e, colon, k0, k1, c0, c1, i;
+
+	n = w->tag.file->nc;
+	if(n == 0){
+		*nbind = 0;
+		return TRUE;
+	}
+	r = runemalloc(n);
+	bufread(w->tag.file, 0, r, n);
+	*nbind = 0;
+	for(q=0; q<n; q++){
+		if(r[q] != '[')
+			continue;
+		for(e=q+1; e<n && r[e]!=']'; e++)
+			;
+		if(e == n)
+			break;
+		colon = -1;
+		for(i=q+1; i<e; i++)
+			if(r[i] == ':'){
+				colon = i;
+				break;
+			}
+		if(colon < 0){
+			q = e;
+			continue;
+		}
+		k0 = q+1;
+		k1 = colon;
+		trimrange(r, &k0, &k1);
+		if(!iskeybindingname(r+k0, k1-k0)){
+			q = e;
+			continue;
+		}
+		if(!parsefkey(r+k0, k1-k0, &i)){
+			warning(nil, "KeyPut: unsupported key %.*S\n", k1-k0, r+k0);
+			free(r);
+			return FALSE;
+		}
+		if(cmd[i] != nil){
+			warning(nil, "KeyPut: duplicate F%d binding\n", i+1);
+			free(r);
+			return FALSE;
+		}
+		c0 = colon+1;
+		c1 = e;
+		trimrange(r, &c0, &c1);
+		if(c0 == c1){
+			warning(nil, "KeyPut: empty F%d binding\n", i+1);
+			free(r);
+			return FALSE;
+		}
+		c = runemalloc(c1-c0);
+		runemove(c, r+c0, c1-c0);
+		cmd[i] = c;
+		ncmd[i] = c1-c0;
+		(*nbind)++;
+		q = e;
+	}
+	free(r);
+	return TRUE;
+}
+
+static void
+executecommand(Text *t, Rune *r, int n, Text *argt)
+{
+	Rune *s;
+	char *b, *a, *aa;
+	Exectab *e;
+	Runestr dir;
+	int m;
+
+	e = lookup(r, n);
+	if(e){
+		if(e->mark && seltext!=nil)
+		if(seltext->what == Body){
+			seq++;
+			filemark(seltext->w->body.file);
+		}
+		s = skipbl(r, n, &m);
+		s = findbl(s, m, &m);
+		s = skipbl(s, m, &m);
+		(*e->fn)(t, seltext, argt, e->flag1, e->flag2, s, m);
+		return;
+	}
+
+	b = runetobyte(r, n);
+	dir = dirname(t, nil, 0);
+	if(dir.nr==1 && dir.r[0]=='.'){	/* sigh */
+		free(dir.r);
+		dir.r = nil;
+		dir.nr = 0;
+	}
+	aa = getbytearg(argt, TRUE, TRUE, &a);
+	if(t->w)
+		incref(t->w);
+	run(t->w, b, dir.r, dir.nr, TRUE, aa, a, FALSE);
+}
+
+int
+winkeyexecute(Window *w, Text *t, Rune r)
+{
+	int i;
+
+	if(!fkeyindex(r, &i) || w->keycmd[i] == nil)
+		return FALSE;
+	wincommit(w, t);
+	executecommand(t, w->keycmd[i], w->nkeycmd[i], nil);
+	return TRUE;
 }
 
 enum {
@@ -428,11 +619,10 @@ void
 execute(Text *t, uint aq0, uint aq1, int external, Text *argt)
 {
 	uint q0, q1;
-	Rune *r, *s;
-	char *b, *a, *aa;
+	Rune *r;
+	char *a, *aa;
 	Exectab *e;
 	int c, n, f, bx;
-	Runestr dir;
 
 	q0 = aq0;
 	q1 = aq1;
@@ -507,32 +697,8 @@ execute(Text *t, uint aq0, uint aq1, int external, Text *argt)
 		free(a);
 		return;
 	}
-	if(e){
-		if(e->mark && seltext!=nil)
-		if(seltext->what == Body){
-			seq++;
-			filemark(seltext->w->body.file);
-		}
-		s = skipbl(r, q1-q0, &n);
-		s = findbl(s, n, &n);
-		s = skipbl(s, n, &n);
-		(*e->fn)(t, seltext, argt, e->flag1, e->flag2, s, n);
-		free(r);
-		return;
-	}
-
-	b = runetobyte(r, q1-q0);
+	executecommand(t, r, q1-q0, argt);
 	free(r);
-	dir = dirname(t, nil, 0);
-	if(dir.nr==1 && dir.r[0]=='.'){	/* sigh */
-		free(dir.r);
-		dir.r = nil;
-		dir.nr = 0;
-	}
-	aa = getbytearg(argt, TRUE, TRUE, &a);
-	if(t->w)
-		incref(t->w);
-	run(t->w, b, dir.r, dir.nr, TRUE, aa, a, FALSE);
 }
 
 char*
@@ -601,6 +767,60 @@ getbytearg(Text *argt, int doaddr, int dofile, char **bp)
 	*bp = runetobyte(r, n);
 	free(r);
 	return aa;
+}
+
+void
+keyput(Text *et, Text*, Text*, int, int, Rune*, int)
+{
+	Rune *cmd[NFKEY];
+	int ncmd[NFKEY];
+	int i, nbind;
+	Window *w;
+
+	if(et==nil || et->w==nil){
+		warning(nil, "KeyPut: no window\n");
+		return;
+	}
+	w = et->w;
+	for(i=0; i<NFKEY; i++){
+		cmd[i] = nil;
+		ncmd[i] = 0;
+	}
+	wincommit(w, &w->tag);
+	if(!compilekeys(w, cmd, ncmd, &nbind)){
+		freekeycmds(cmd);
+		return;
+	}
+	winkeyclear(w);
+	for(i=0; i<NFKEY; i++){
+		w->keycmd[i] = cmd[i];
+		w->nkeycmd[i] = ncmd[i];
+	}
+	if(nbind == 0)
+		warning(nil, "KeyPut: no key bindings\n");
+	else
+		warning(nil, "KeyPut: %d key binding%s\n", nbind, nbind==1 ? "" : "s");
+}
+
+void
+keys(Text *et, Text*, Text*, int, int, Rune*, int)
+{
+	int i, n;
+	Window *w;
+
+	if(et==nil || et->w==nil){
+		warning(nil, "Keys: no window\n");
+		return;
+	}
+	w = et->w;
+	n = 0;
+	for(i=0; i<NFKEY; i++)
+		if(w->keycmd[i]){
+			warning(nil, "F%d: %.*S\n", i+1, w->nkeycmd[i], w->keycmd[i]);
+			n++;
+		}
+	if(n == 0)
+		warning(nil, "Keys: no key bindings\n");
 }
 
 void
