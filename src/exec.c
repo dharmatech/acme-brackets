@@ -119,6 +119,11 @@ isexecc(int c)
 	return c=='<' || c=='|' || c=='>';
 }
 
+enum {
+	BracketNear = 3,
+	BracketMaxLines = 200,
+};
+
 static int
 isredirbracket(Text *t, uint q, uint line0)
 {
@@ -140,17 +145,99 @@ redircbracket(Text *t, uint q, uint line1)
 }
 
 static int
-bracketexpand(Text *t, uint aq0, uint *q0, uint *q1)
+bracketblank(Text *t, uint q0, uint q1)
+{
+	while(q0<q1)
+		if(!isspace(textreadc(t, q0++)))
+			return FALSE;
+	return TRUE;
+}
+
+static void
+linearound(Text *t, uint q, uint *q0, uint *q1)
+{
+	*q0 = q;
+	while(*q0>0 && textreadc(t, *q0-1)!='\n')
+		(*q0)--;
+	*q1 = q;
+	while(*q1<t->file->nc && textreadc(t, *q1)!='\n')
+		(*q1)++;
+}
+
+static uint
+nextline(Text *t, uint q)
+{
+	while(q<t->file->nc && textreadc(t, q)!='\n')
+		q++;
+	if(q<t->file->nc)
+		q++;
+	return q;
+}
+
+static uint
+prevline(Text *t, uint q)
+{
+	if(q == 0)
+		return 0;
+	q--;
+	while(q>0 && textreadc(t, q-1)!='\n')
+		q--;
+	return q;
+}
+
+static int
+bracketdelim(Text *t, uint q0, uint q1, int delim)
+{
+	while(q0<q1 && isspace(textreadc(t, q0)))
+		q0++;
+	if(q0==q1 || textreadc(t, q0)!=delim)
+		return FALSE;
+	q0++;
+	while(q0<q1 && isspace(textreadc(t, q0)))
+		q0++;
+	return q0 == q1;
+}
+
+static int
+trimblock(Text *t, uint *q0, uint *q1)
+{
+	uint p, e;
+
+	while(*q0<*q1){
+		p = *q0;
+		while(p<*q1 && textreadc(t, p)!='\n')
+			p++;
+		if(!bracketblank(t, *q0, p))
+			break;
+		*q0 = p;
+		if(*q0<*q1 && textreadc(t, *q0)=='\n')
+			(*q0)++;
+	}
+	while(*q1>*q0){
+		p = *q1;
+		while(p>*q0 && textreadc(t, p-1)!='\n')
+			p--;
+		e = *q1;
+		if(e>p && textreadc(t, e-1)=='\n')
+			e--;
+		if(!bracketblank(t, p, e))
+			break;
+		*q1 = p;
+		if(*q1>*q0 && textreadc(t, *q1-1)=='\n')
+			(*q1)--;
+	}
+	if(*q0>=*q1 || bracketblank(t, *q0, *q1))
+		return FALSE;
+	return TRUE;
+}
+
+static int
+linebracketexpand(Text *t, uint aq0, uint *q0, uint *q1)
 {
 	uint line0, line1, p, q, l, r, bestl, bestr;
 	int c, depth, found;
 
-	line0 = aq0;
-	while(line0>0 && textreadc(t, line0-1)!='\n')
-		line0--;
-	line1 = aq0;
-	while(line1<t->file->nc && textreadc(t, line1)!='\n')
-		line1++;
+	linearound(t, aq0, &line0, &line1);
 
 	/*
 	 * Do not treat rc redirection notation like >[2] as a command
@@ -214,6 +301,115 @@ bracketexpand(Text *t, uint aq0, uint *q0, uint *q1)
 	if(*q0 == *q1)
 		return -1;
 	return 1;
+}
+
+static int
+blockfromopen(Text *t, uint aq0, uint open0, uint open1, uint *q0, uint *q1)
+{
+	uint p, l0, l1, close0, close1;
+	int n;
+
+	p = nextline(t, open0);
+	for(n=0; n<BracketMaxLines && p<t->file->nc; n++){
+		linearound(t, p, &l0, &l1);
+		if(bracketdelim(t, l0, l1, '['))
+			return 0;
+		if(bracketdelim(t, l0, l1, ']')){
+			close0 = l0;
+			close1 = l1;
+			if(aq0<open0 || aq0>close1)
+				return 0;
+			*q0 = open1;
+			if(*q0<t->file->nc && textreadc(t, *q0)=='\n')
+				(*q0)++;
+			*q1 = close0;
+			if(*q1>*q0 && textreadc(t, *q1-1)=='\n')
+				(*q1)--;
+			if(!trimblock(t, q0, q1))
+				return -1;
+			return 1;
+		}
+		p = nextline(t, l0);
+	}
+	return 0;
+}
+
+static int
+blockfromclose(Text *t, uint aq0, uint close0, uint close1, uint *q0, uint *q1)
+{
+	uint p, l0, l1, open0, open1;
+	int n;
+
+	p = close0;
+	for(n=0; n<BracketMaxLines && p>0; n++){
+		p = prevline(t, p);
+		linearound(t, p, &l0, &l1);
+		if(bracketdelim(t, l0, l1, ']'))
+			return 0;
+		if(bracketdelim(t, l0, l1, '[')){
+			open0 = l0;
+			open1 = l1;
+			if(aq0<open0 || aq0>close1)
+				return 0;
+			*q0 = open1;
+			if(*q0<t->file->nc && textreadc(t, *q0)=='\n')
+				(*q0)++;
+			*q1 = close0;
+			if(*q1>*q0 && textreadc(t, *q1-1)=='\n')
+				(*q1)--;
+			if(!trimblock(t, q0, q1))
+				return -1;
+			return 1;
+		}
+		if(p == 0)
+			break;
+	}
+	return 0;
+}
+
+static int
+blockbracketexpand(Text *t, uint aq0, uint *q0, uint *q1)
+{
+	uint click0, p, l0, l1;
+	int n, r;
+
+	linearound(t, aq0, &click0, &l1);
+
+	p = click0;
+	for(n=0; n<=BracketNear; n++){
+		linearound(t, p, &l0, &l1);
+		if(bracketdelim(t, l0, l1, '[')){
+			r = blockfromopen(t, aq0, l0, l1, q0, q1);
+			if(r != 0)
+				return r;
+		}
+		if(p == 0)
+			break;
+		p = prevline(t, p);
+	}
+
+	p = click0;
+	for(n=0; n<=BracketNear && p<t->file->nc; n++){
+		linearound(t, p, &l0, &l1);
+		if(bracketdelim(t, l0, l1, ']')){
+			r = blockfromclose(t, aq0, l0, l1, q0, q1);
+			if(r != 0)
+				return r;
+		}
+		p = nextline(t, p);
+	}
+	return 0;
+}
+
+static int
+bracketexpand(Text *t, uint aq0, uint *q0, uint *q1)
+{
+	int r;
+
+	r = linebracketexpand(t, aq0, q0, q1);
+	if(r != 0)
+		return r;
+	return blockbracketexpand(t, aq0, q0, q1);
 }
 
 void

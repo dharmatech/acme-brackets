@@ -282,6 +282,70 @@ rc -c '
 
 Middle-clicking anywhere inside the bracketed region executes the entire enclosed text.
 
+## Delimiter Lines
+
+Level 2 command objects use standalone bracket delimiter lines.
+
+The opening delimiter line must contain only optional whitespace, `[`,
+and optional whitespace.
+
+The closing delimiter line must contain only optional whitespace, `]`,
+and optional whitespace.
+
+Valid:
+
+```text
+[
+date
+]
+```
+
+Also valid:
+
+```text
+    [
+        date
+    ]
+```
+
+Not a Level 2 delimiter:
+
+```text
+prefix [
+date
+]
+```
+
+This keeps multi-line command objects visually distinct from prose and
+inline commands.
+
+## Body Text
+
+The command body is the text between the delimiter lines.
+
+Leading and trailing blank lines inside the body are ignored. Internal
+blank lines and indentation are preserved. Level 2 does not auto-dedent
+the body.
+
+Empty or whitespace-only bodies are ignored.
+
+## Click Area
+
+Level 2 uses bounded searching.
+
+A click may occur on:
+
+* the opening delimiter line
+* the closing delimiter line
+* one of the first three body lines after the opening delimiter
+* one of the last three body lines before the closing delimiter
+
+This allows convenient clicking near either end of the block without
+requiring unbounded searches through large buffers.
+
+Level 1 single-line bracket expansion is attempted first. If Level 1
+matches, Level 2 is not considered.
+
 ## Parsing Rules
 
 ### No Nesting

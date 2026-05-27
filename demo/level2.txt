@@ -1,0 +1,61 @@
+# Level 2 bracketed command objects
+
+# Multiline command objects use standalone bracket lines.
+
+[
+date
+]
+
+[
+echo hello from level 2
+echo second command
+]
+
+# Indentation is allowed and preserved.
+
+[
+    echo indented command one
+    echo indented command two
+]
+
+# Leading and trailing blank body lines should be trimmed.
+
+[
+
+echo trimmed blank lines
+
+]
+
+# Empty and whitespace-only bodies should not run.
+
+[
+]
+
+[
+    
+]
+
+# Delimiter lines must contain only the bracket and whitespace.
+# This is not a Level 2 command object.
+
+prefix [
+date
+]
+
+# A click near the top or bottom of this block should run it.
+# A click far from either delimiter is intentionally outside Level 2.
+
+[
+echo line 1
+echo line 2
+echo line 3
+echo line 4
+echo line 5
+echo line 6
+echo line 7
+echo line 8
+]
+
+# Level 1 still handles inline brackets first.
+
+[echo inline still works]
