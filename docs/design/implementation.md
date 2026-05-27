@@ -1,7 +1,10 @@
 # Bracket Command Implementation Notes
 
 These notes describe the current implementation shape. They are not a
-separate user-facing design; the behavior is defined in `intro.md`.
+separate user-facing design; the behavior is defined in:
+
+* `01-command-objects.md`
+* `02-key-bindings.md`
 
 ## Execution Path
 
