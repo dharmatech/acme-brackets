@@ -42,6 +42,22 @@ prefix [
 date
 ]
 
+# This is not a Level 2 command object because the closing bracket
+# is not on a standalone delimiter line.
+
+[
+date
+suffix ]
+
+# This malformed block should not pair with the next standalone block.
+
+[
+date
+
+[
+echo second block
+]
+
 # A click near the top or bottom of this block should run it.
 # A click far from either delimiter is intentionally outside Level 2.
 
